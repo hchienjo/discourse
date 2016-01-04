@@ -19,7 +19,6 @@ export default Ember.Controller.extend(SelectedPostsCount, BufferedContent, {
   loadedAllPosts: Em.computed.or('model.postStream.loadedAllPosts', 'model.postStream.loadingLastPost'),
   enteredAt: null,
   retrying: false,
-  firstPostExpanded: false,
   adminMenuVisible: false,
 
   showRecover: Em.computed.and('model.deleted', 'model.details.can_recover'),
@@ -101,6 +100,14 @@ export default Ember.Controller.extend(SelectedPostsCount, BufferedContent, {
   },
 
   actions: {
+    toggleSummary() {
+      return this.get('model.postStream').toggleSummary();
+    },
+
+    removeAllowedUser(user) {
+      return this.get('model.details').removeAllowedUser(user);
+    },
+
     showTopicAdminMenu() {
       this.set('adminMenuVisible', true);
     },
@@ -112,7 +119,6 @@ export default Ember.Controller.extend(SelectedPostsCount, BufferedContent, {
     deleteTopic() {
       this.deleteTopic();
     },
-
 
     archiveMessage() {
       const topic = this.get('model');
@@ -176,8 +182,7 @@ export default Ember.Controller.extend(SelectedPostsCount, BufferedContent, {
 
       // Deleting the first post deletes the topic
       if (post.get('post_number') === 1) {
-        this.deleteTopic();
-        return;
+        return this.deleteTopic();
       } else if (!post.can_delete) {
         // check if current user can delete post
         return false;
@@ -210,7 +215,8 @@ export default Ember.Controller.extend(SelectedPostsCount, BufferedContent, {
           }
         ]);
       } else {
-        post.destroy(user).catch(function(error) {
+        console.log('del prom');
+        return post.destroy(user).catch(function(error) {
           popupAjaxError(error);
           post.undoDeleteState();
         });
@@ -245,7 +251,7 @@ export default Ember.Controller.extend(SelectedPostsCount, BufferedContent, {
     },
 
     toggleBookmark(post) {
-      if (!Discourse.User.current()) {
+      if (!this.currentUser) {
         alert(I18n.t("bookmarks.not_bookmarked"));
         return;
       }
@@ -447,18 +453,6 @@ export default Ember.Controller.extend(SelectedPostsCount, BufferedContent, {
       });
     },
 
-    expandFirstPost(post) {
-      const self = this;
-      this.set('loadingExpanded', true);
-      post.expand().then(function() {
-        self.set('firstPostExpanded', true);
-      }).catch(function(error) {
-        bootbox.alert($.parseJSON(error.responseText).errors);
-      }).finally(function() {
-        self.set('loadingExpanded', false);
-      });
-    },
-
     retryLoading() {
       const self = this;
       self.set('retrying', true);
@@ -470,22 +464,22 @@ export default Ember.Controller.extend(SelectedPostsCount, BufferedContent, {
     },
 
     toggleWiki(post) {
-      post.updatePostField('wiki', !post.get('wiki'));
+      return post.updatePostField('wiki', !post.get('wiki'));
     },
 
     togglePostType(post) {
       const regular = this.site.get('post_types.regular');
       const moderator = this.site.get('post_types.moderator_action');
 
-      post.updatePostField('post_type', post.get('post_type') === moderator ? regular : moderator);
+      return post.updatePostField('post_type', post.get('post_type') === moderator ? regular : moderator);
     },
 
     rebakePost(post) {
-      post.rebake();
+      return post.rebake();
     },
 
     unhidePost(post) {
-      post.unhide();
+      return post.unhide();
     },
 
     changePostOwner(post) {
@@ -497,11 +491,6 @@ export default Ember.Controller.extend(SelectedPostsCount, BufferedContent, {
   togglePinnedState() {
     this.send('togglePinnedForUser');
   },
-
-  showExpandButton: function() {
-    const post = this.get('post');
-    return post.get('post_number') === 1 && post.get('topic.expandable_first_post');
-  }.property(),
 
   canMergeTopic: function() {
     if (!this.get('model.details.can_move_posts')) return false;
@@ -718,13 +707,13 @@ export default Ember.Controller.extend(SelectedPostsCount, BufferedContent, {
       // to do this to preserve upwards infinte scrolling.
       const $body = $('body');
       const elemId = `#post_${post.get('post_number')}`;
-      const $elem = $(elemId).closest('.post-cloak');
+      const $elem = $(elemId);
       const elemPos = $elem.position();
       const distToElement = elemPos ? $body.scrollTop() - elemPos.top : 0;
 
       postStream.prependMore().then(function() {
         Em.run.next(function () {
-          const $refreshedElem = $(elemId).closest('.post-cloak');
+          const $refreshedElem = $(elemId);
 
           // Quickly going back might mean the element is destroyed
           const position = $refreshedElem.position();

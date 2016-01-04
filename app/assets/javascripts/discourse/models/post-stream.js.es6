@@ -560,17 +560,6 @@ export default RestModel.extend({
     }
   },
 
-  // Returns the "thread" of posts in the history of a post.
-  findReplyHistory(post) {
-    const url = `/posts/${post.get('id')}/reply-history.json?max_replies=${Discourse.SiteSettings.max_reply_history}`;
-    const store = this.store;
-    return Discourse.ajax(url).then(result => {
-      return result.map(p => this.storePost(store.createRecord('post', p)));
-    }).then(replyHistory => {
-      post.set('replyHistory', replyHistory);
-    });
-  },
-
   /**
     Returns the closest post given a postNumber that may not exist in the stream.
     For example, if the user asks for a post that's deleted or otherwise outside the range.
